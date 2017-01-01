@@ -1,11 +1,14 @@
 package mproxy;
 
 import java.io.IOException;
+import java.util.logging.Logger;
 
 /**
  *
  */
 public class Main {
+
+    private static final Logger LOGGER = Logger.getLogger(Main.class.toString());
 
     public static void main(String[] args) throws IOException {
         int port = -1;
@@ -34,10 +37,9 @@ public class Main {
         new Server(host, port, localPort).start();
     }
 
-    static void ussage() {
-        System.out.println(
-                "TCP/IP proxy\n" +
-                        "Usage: mproxy -h <target host> -p <target port> -l <local port>");
+    private static void ussage() {
+        LOGGER.info("TCP/IP proxy\n" +
+                "Usage: mproxy -h <target host> -p <target port> -l <local port>");
     }
 }
 

@@ -12,6 +12,8 @@ class Server {
 
     private static final Logger LOGGER = Logger.getLogger(Server.class.getName());
 
+    private static final int BUFFER_SIZE = 32 * 1024;
+
     private final ByteBuffer buffer;
     private final WritableByteChannel stdoutChannel;
 
@@ -19,21 +21,19 @@ class Server {
     private InetSocketAddress address;
     private final int localPort;
 
-    private ServerSocketChannel serverChannel;
-    Selector selector;
+    private Selector selector;
 
     Server(String host, int port, int localPort) {
         this.address = new InetSocketAddress(host, port);
         this.localPort = localPort;
-        LOGGER.info("Hello from ctr");
-        buffer = ByteBuffer.allocateDirect(32768);
+        buffer = ByteBuffer.allocateDirect(BUFFER_SIZE);
         stdoutChannel = Channels.newChannel(System.out);
     }
 
-    void configureServer() throws IOException {
+    private void configureServer() throws IOException {
         LOGGER.info("Listen local port " + localPort);
         LOGGER.info("Remote host is " + address);
-        serverChannel = ServerSocketChannel.open();
+        ServerSocketChannel serverChannel = ServerSocketChannel.open();
         ServerSocket serverSocket = serverChannel.socket();
         selector = Selector.open();
         serverSocket.bind(new InetSocketAddress(localPort));
@@ -45,7 +45,7 @@ class Server {
         configureServer();
         while (true) {
             int m = selector.select();
-            System.out.println("\n*** [new loop] =" + m + " ***");
+            LOGGER.fine(() -> "*** [new loop] =" + m + " ***");
             if (m == 0) {
                 continue;
             }
@@ -72,19 +72,19 @@ class Server {
     private void readDataFromSocket(SelectionKey key) throws IOException {
         SocketChannel sourceChannel = (SocketChannel) key.channel();
         SocketChannel targetChannel = (SocketChannel) key.attachment();
-        int count;
         buffer.clear();
         // Empty buffer
         // Loop while data is available; channel is nonblocking
-        count = sourceChannel.read(buffer);
+        int count = sourceChannel.read(buffer);
         if (count >= 0) {
             buffer.flip();
             targetChannel.write(buffer);
 //            buffer.flip();
 //            stdoutChannel.write(buffer);
         } else {
-            LOGGER.info("Close channel " + sourceChannel.getRemoteAddress());
+            LOGGER.info("Close " + sourceChannel.getRemoteAddress());
             sourceChannel.close();
+            targetChannel.close();
         }
     }
 
