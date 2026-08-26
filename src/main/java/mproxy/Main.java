@@ -1,45 +1,47 @@
 package mproxy;
 
+import java.io.BufferedOutputStream;
+import java.io.FileDescriptor;
+import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.logging.Logger;
+import java.net.InetSocketAddress;
+import java.nio.channels.Channels;
+import java.nio.channels.WritableByteChannel;
 
-/**
- *
- */
-public class Main {
+public final class Main {
 
-    private static final Logger LOGGER = Logger.getLogger(Main.class.toString());
+    private Main() {
+    }
 
     public static void main(String[] args) throws IOException {
-        int port = -1;
-        int localPort = 9999;
-        String host = null;
-        for (int i = 0; i < args.length; i += 2) {
-            String value = args[i + 1];
-            switch (args[i]) {
-                case "-h":
-                    host = value;
-                    break;
-                case "-p":
-                    port = Integer.parseInt(value);
-                    break;
-                case "-l":
-                    localPort = Integer.parseInt(value);
-                    break;
-                default:
-                    break;
-            }
+        Options options;
+        try {
+            options = Options.parse(args);
+        } catch (IllegalArgumentException e) {
+            System.err.println("Error: " + e.getMessage());
+            usage();
+            System.exit(2);
+            return;
         }
-        if (host == null || port == -1) {
-            ussage();
-            System.exit(1);
+        InetSocketAddress remote = new InetSocketAddress(options.remoteHost(), options.remotePort());
+        if (remote.getAddress() == null) {
+            System.err.println("Error: cannot resolve host " + options.remoteHost());
+            System.exit(2);
+            return;
         }
-        new Server(host, port, localPort).start();
+        WritableByteChannel mirror = options.mirrorPayloads()
+                ? Channels.newChannel(new BufferedOutputStream(new FileOutputStream(FileDescriptor.out)))
+                : null;
+        new ProxyServer(remote, options.localPort(), mirror).start();
     }
 
-    private static void ussage() {
-        LOGGER.info("TCP/IP proxy\n" +
-                "Usage: mproxy -h <target host> -p <target port> -l <local port>");
+    private static void usage() {
+        System.err.println("""
+                TCP/IP proxy (single-threaded NIO reactor)
+                Usage: mproxy -h <host> -p <port> [-l <local port>] [-v]
+                  -h  remote host to forward traffic to
+                  -p  remote port
+                  -l  local listening port (default 9999)
+                  -v  mirror transferred payloads to stdout""");
     }
 }
-
